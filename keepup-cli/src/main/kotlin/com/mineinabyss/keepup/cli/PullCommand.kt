@@ -3,6 +3,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.path
@@ -22,6 +23,9 @@ class PullCommand : CliktCommand(name = "pull"){
 
     val keyPath by option("-k", "--key-path", help = "Path to SSH key used to access private repos or get a higher rate limit")
         .path(mustExist = true, canBeDir = false, mustBeReadable = true)
+
+    val dontStashChanges by option("-n", "--no-stash", help = "Don't stash changes before pulling. If enabled, may fail pull if unable to merge.")
+        .flag(default = false)
 
     fun runProcess(vararg command: String) {
         ProcessBuilder()
@@ -50,7 +54,6 @@ class PullCommand : CliktCommand(name = "pull"){
             checkoutCommand = emptyArray()
         }
 
-        var command: List<String>
         if (!repoDir.exists()) {
             // Must clone if directory doesn't exist
             t.println("Repository doesn't exist, cloning into $repoDir instead.")
@@ -61,7 +64,14 @@ class PullCommand : CliktCommand(name = "pull"){
                 runProcess("git", "-C", repoDir.toAbsolutePath().toString(), "pull") // Pull branch, checkout only makes local copy
             }
         } else {
-            runProcess("git", "-C", repoDir.toAbsolutePath().toString(), "stash") // Stash first to discard local changes
+            if (!dontStashChanges) {
+                runProcess(
+                    "git",
+                    "-C",
+                    repoDir.toAbsolutePath().toString(),
+                    "stash"
+                ) // Stash first to discard local changes
+            }
             runProcess(*checkoutCommand)
             runProcess("git", "-C", repoDir.toAbsolutePath().toString(), "pull")
         }
